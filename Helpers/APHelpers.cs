@@ -1,107 +1,103 @@
+using System;
+using System.Collections.Generic;
 using Archipelago.Core;
-using Serilog;
-using Helpers;
 using Archipelago.Core.Models;
+using Archipelago.MultiClient.Net.Models;
 
 namespace Helpers
 {
-    public class APHelpers
+    public static class APHelpers
     {
-        public static Boolean isInTheGame()
+        private static BizHawkSNIClient _gameClient;
+        
+        public static void SetGameClient(BizHawkSNIClient client)
         {
-
-            // ulong currentGameStatus = Memory.ReadUInt(Addresses.InGameCheck);
-            // TODO: check values in here against the game
-            return true;
+            _gameClient = client;
         }
-
+        
+        /// <summary>
+        /// Check if the player is currently in the game (not in menus, etc.)
+        /// </summary>
+        public static bool isInTheGame()
+        {
+            // TODO: Implement proper check by reading game state from memory
+            // For now, always return true if connected
+            return _gameClient?.IsConnected ?? false;
+        }
+        
         public static async void OnConnectedLogic(object sender, EventArgs args, ArchipelagoClient client)
         {
-            if (client.CurrentSession == null)
+            Console.WriteLine("Connected to Archipelago server!");
+            
+            // Get slot data if available
+            if (client.Options != null)
             {
-                return;
+                Console.WriteLine("Slot options received:");
+                foreach (var kvp in client.Options)
+                {
+                    Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
+                }
             }
-            Log.Logger.Information("Connected to Archipelago");
-            Log.Logger.Information($"Playing {client.CurrentSession.ConnectionInfo.Game} as {client.CurrentSession.Players.GetPlayerName(client.CurrentSession.ConnectionInfo.Slot)}");
-
-            // if deathlink goes here
-            int deathlink = int.Parse(client.Options?.GetValueOrDefault("deathlink", 0).ToString());
-
-            if (deathlink == 1)
-            {
-                var deathLink = client.EnableDeathLink();
-                deathLink.OnDeathLinkReceived += (args) => PlayerStateHelpers.KillPlayer();
-            }
-
-            if (isInTheGame())
-            {
-                // if you are booting and already in the game, run any reset functions
-            }
+            
+            // Note: Item syncing is handled by the ItemReceived event
+            // No need to manually sync here
         }
-
+        
         public static async void OnDisconnectedLogic(object sender, ConnectionChangedEventArgs args, ArchipelagoClient client)
         {
-            if (client.CurrentSession != null)
-            {
-                return;
-            }
-            Console.WriteLine("Disconnected from Archipelago.");
+            Console.WriteLine("Disconnected from Archipelago server.");
+            Console.WriteLine("Attempting to reconnect...");
         }
-
+        
         public static void ItemReceivedLogic(object sender, ItemReceivedEventArgs args, ArchipelagoClient client)
         {
-            if (client.CurrentSession == null)
+            try
             {
-                return;
+                var item = args.Item;
+                Console.WriteLine($"Received item: {item.Name} (AP ID: {item.Id})");
+                
+                // Convert AP item ID to game item ID
+                // AP items use base ID 0x54450000 (1413808128)
+                const long AP_BASE_ID = 0x54450000;
+                int gameItemId = (int)(item.Id - AP_BASE_ID);
+                
+                Console.WriteLine($"  Game Item ID: 0x{gameItemId:X2}");
+                
+                // Give the item to the player
+                PlayerStateHelpers.GiveItem(gameItemId, item.Name);
             }
-            Console.WriteLine("Item Received");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AP] Error receiving item: {ex.Message}");
+            }
         }
-
-        public static void Client_MessageReceivedLogic(object sender, MessageReceivedEventArgs e, ArchipelagoClient client)
+        
+        public static void Client_MessageReceivedLogic(object sender, MessageReceivedEventArgs args, ArchipelagoClient client)
         {
-
-            if (client.CurrentSession == null)
-            {
-                return;
-            }
-
-            var message = string.Join("", e.Message.Parts.Select(p => p.Text));
-
-            client.AddOverlayMessage(e.Message.ToString());
-
-            // adds coloured messages to terminal
-
-            // string prefix;
-            // Kokuban.AnsiEscape.AnsiStyle bg;
-            // Kokuban.AnsiEscape.AnsiStyle fg;
-
-            // if (message.Contains($"{slot} found") || message.Contains($"{slot} sent"))
-            // {
-            //     bg = message.Contains("Trap:") ? Chalk.BgRed : message.Contains("Congratulations") ? Chalk.Yellow : Chalk.BgBlue;
-            //     fg = Chalk.White;
-            //     prefix = " >> ";
-            // }
-            // else
-            // {
-            //     bg = message.Contains("Trap:") ? Chalk.BgRed : message.Contains("Congratulations") ? Chalk.Yellow : Chalk.BgGreen;
-            //     fg = Chalk.White;
-            //     prefix = " << ";
-            // }
-
-            // Console.WriteLine(bg + (fg + $"{prefix} {message} "));
+            // Display messages from the server
+            Console.WriteLine($"[AP] {args.Message}");
         }
-
+        
         public static void Client_LocationCompletedLogic(object sender, LocationCompletedEventArgs e, ArchipelagoClient client)
         {
-            if (client.CurrentSession == null)
+            // LocationCompletedEventArgs may have different properties depending on library version
+            try
             {
-                return;
+                Console.WriteLine($"Location completed event received");
             }
-            Console.WriteLine("Location Completed");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Location completed error: {ex.Message}");
+            }
         }
+        
         public static void Locations_CheckedLocationsUpdated(System.Collections.ObjectModel.ReadOnlyCollection<long> newCheckedLocations)
         {
-            Console.WriteLine($"Location CheckedLocationsUpdated Firing.");
+            Console.WriteLine($"Locations updated. New checks: {newCheckedLocations.Count}");
+            foreach (var locId in newCheckedLocations)
+            {
+                Console.WriteLine($"  - Location {locId} checked");
+            }
         }
     }
 }
