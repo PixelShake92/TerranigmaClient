@@ -288,7 +288,99 @@ namespace TerranigmaClient
             {
                 return id;
             }
+            
+            // Check for gem items (e.g., "30 Gems", "100 Gems")
+            if (name.EndsWith(" Gems"))
+            {
+                string numStr = name.Replace(" Gems", "");
+                if (int.TryParse(numStr, out int gemValue))
+                {
+                    return GetGemItemId(gemValue);
+                }
+            }
+            
             return -1;
+        }
+        
+        /// <summary>
+        /// Get item info by name (case-insensitive search)
+        /// </summary>
+        public static ItemInfo GetItemByName(string name)
+        {
+            // Exact match first
+            int id = GetItemId(name);
+            if (id >= 0)
+            {
+                return GetItemInfo(id);
+            }
+            
+            // Case-insensitive search
+            string lowerName = name.ToLowerInvariant();
+            foreach (var kvp in Database)
+            {
+                if (kvp.Value.Name.ToLowerInvariant() == lowerName)
+                {
+                    return kvp.Value;
+                }
+            }
+            
+            // Partial match (for convenience)
+            foreach (var kvp in Database)
+            {
+                if (kvp.Value.Name.ToLowerInvariant().Contains(lowerName))
+                {
+                    return kvp.Value;
+                }
+            }
+            
+            // Check for gem items
+            if (lowerName.EndsWith(" gems") || lowerName.EndsWith("gems"))
+            {
+                string numStr = lowerName.Replace(" gems", "").Replace("gems", "").Trim();
+                if (int.TryParse(numStr, out int gemValue))
+                {
+                    int gemId = GetGemItemId(gemValue);
+                    return new ItemInfo(gemId, $"{gemValue} Gems", ItemType.Gems, 0, gemValue);
+                }
+            }
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// Convert a gem value to its item ID
+        /// </summary>
+        public static int GetGemItemId(int gemValue)
+        {
+            // Encode gem value to item ID (0x1XXX format)
+            // 30 -> 0x1030, 50 -> 0x1050, 100 -> 0x1100, etc.
+            if (gemValue < 100)
+            {
+                return 0x1000 + ((gemValue / 10) << 4) + (gemValue % 10);
+            }
+            else
+            {
+                int hundreds = gemValue / 100;
+                int tens = (gemValue % 100) / 10;
+                int ones = gemValue % 10;
+                return 0x1000 + (hundreds << 8) + (tens << 4) + ones;
+            }
+        }
+        
+        /// <summary>
+        /// List all available items (for help command)
+        /// </summary>
+        public static List<string> GetAllItemNames()
+        {
+            var names = new List<string>();
+            foreach (var kvp in Database)
+            {
+                names.Add(kvp.Value.Name);
+            }
+            // Add common gem amounts
+            names.AddRange(new[] { "30 Gems", "50 Gems", "100 Gems", "200 Gems", "300 Gems", "500 Gems" });
+            names.Sort();
+            return names;
         }
     }
 }

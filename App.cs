@@ -312,9 +312,13 @@ internal class Program
                         }
                     }
                 }
+                else if (CommandHandler.TryHandleCommand(input))
+                {
+                    // Custom command was handled (getitem, items, givegems, etc.)
+                }
                 else if (!string.IsNullOrWhiteSpace(input))
                 {
-                    Console.WriteLine($"Unknown command: '{input}'. Commands: exit, reconnect, hint, update, debug, locations");
+                    Console.WriteLine($"Unknown command: '{input}'. Commands: exit, reconnect, hint, update, debug, locations, getitem, items, givegems");
                 }
             }
         }
