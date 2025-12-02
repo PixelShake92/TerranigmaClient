@@ -32,10 +32,6 @@ namespace Helpers
             
             switch (command)
             {
-                case "getitem":
-                    HandleGetItem(args);
-                    return true;
-                    
                 case "items":
                 case "listitems":
                     HandleListItems(args);

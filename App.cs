@@ -257,6 +257,28 @@ internal class Program
                     string hintString = input?.Trim().ToLower() == "hint" ? "!hint" : $"!hint {input.Substring(5).Trim()}";
                     archipelagoClient.SendMessage(hintString);
                 }
+                else if (input?.Trim().ToLower().StartsWith("!getitem ") == true || input?.Trim().ToLower().StartsWith("getitem ") == true)
+                {
+                    // Send to AP server so it shows in server log
+                    string getitemString = input.Trim().StartsWith("!") ? input.Trim() : $"!{input.Trim()}";
+                    archipelagoClient.SendMessage(getitemString);
+                    
+                    // Also give the item locally
+                    string itemName = input.Trim().ToLower().StartsWith("!getitem ") 
+                        ? input.Trim().Substring(9) 
+                        : input.Trim().Substring(8);
+                    
+                    var itemInfo = Items.GetItemByName(itemName);
+                    if (itemInfo != null)
+                    {
+                        Console.WriteLine($"Giving item: {itemInfo.Name} (ID: 0x{itemInfo.Id:X2}, Type: {itemInfo.Type})");
+                        PlayerStateHelpers.GiveItem(itemInfo.Id, itemInfo.Name);
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Unknown item: '{itemName}'. Use 'items' to list available items.");
+                    }
+                }
                 else if (input?.Trim().ToLower() == "update")
                 {
                     Console.WriteLine($"Updating player state with {archipelagoClient.CurrentSession.Items.AllItemsReceived.Count} items");
